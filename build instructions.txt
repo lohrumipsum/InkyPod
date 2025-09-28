@@ -1,0 +1,48 @@
+Building the E-Ink Podcast Player from the Command LineThis guide will walk you through compiling and building the Android application without using Android Studio.Step 1: Install PrerequisitesJava Development Kit (JDK): You need a JDK, version 11 or higher. You can download it from Oracle or use an open-source alternative like OpenJDK.Android SDK Command-Line Tools:Go to the Android Studio downloads page and scroll down to "Command line tools only."Download the package for your operating system and unzip it somewhere on your computer (e.g., C:\android-sdk or ~/android-sdk).Step 2: Set Up Environment VariablesYou need to tell your system where to find the JDK and Android SDK.JAVA_HOME: Set this to the path where your JDK is installed.ANDROID_HOME (or ANDROID_SDK_ROOT): Set this to the path where you unzipped the SDK tools.PATH: Add the Android SDK's cmdline-tools/latest/bin, platform-tools, and emulator directories to your system's PATH variable. This allows you to run commands like sdkmanager and adb from any terminal window.Step 3: Download SDK PackagesOpen a terminal or command prompt and use the sdkmanager to download the necessary platform tools, build tools, and an Android platform version.# Accept all licenses first (run this command and type 'y' for all prompts)
+sdkmanager --licenses
+
+# Download necessary packages
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+Step 4: Create the Project Directory StructureCreate a root folder for your project (e.g., EInkPodcast). Inside it, arrange all the files I provided into the following structure. This is critical for the build system to find everything.EInkPodcast/
+├── app/
+│   ├── build.gradle
+│   ├── proguard-rules.pro
+│   └── src/
+│       └── main/
+│           ├── java/
+│           │   └── com/
+│           │       └── example/
+│           │           └── einkpodcast/
+│           │               ├── AppDatabase.java
+│           │               ├── DownloadWorker.java
+│           │               ├── Episode.java
+│           │               ├── EpisodeAdapter.java
+│           │               ├── MainActivity.java
+│           │               ├── PlaybackService.java
+│           │               ├── PodcastDao.java
+│           │               ├── PodcastRepository.java
+│           │               └── PodcastViewModel.java
+│           ├── res/
+│           │   ├── drawable/
+│           │   │   └── border.xml
+│           │   ├── layout/
+│           │   │   ├── activity_main.xml
+│           │   │   └── list_item_episode.xml
+│           │   ├── mipmap-hdpi/  (Add your ic_launcher.png here)
+│           │   ├── values/
+│           │   │   ├── colors.xml
+│           │   │   └── themes.xml
+│           │   └── xml/
+│           │       ├── backup_rules.xml
+│           │       └── data_extraction_rules.xml
+│           └── AndroidManifest.xml
+├── build.gradle
+├── gradle/
+│   └── wrapper/
+│       └── gradle-wrapper.properties
+├── gradlew
+├── gradlew.bat
+└── settings.gradle
+Step 5: Get the Gradle Wrapper FilesThe build system uses a script called the Gradle Wrapper (gradlew) to ensure a consistent build environment. The easiest way to get the necessary files (gradlew, gradlew.bat, and gradle/wrapper/gradle-wrapper.jar) is to copy them from another project.Go to the official Android basic sample repository.Download that project as a ZIP.From the downloaded ZIP, copy the gradlew file, the gradlew.bat file, and the entire gradle/ directory into the root of your EInkPodcast project folder.Replace the gradle/wrapper/gradle-wrapper.properties file you just copied with the one I provided above to ensure you're using the correct Gradle version.Step 6: Build the ApplicationNow you are ready to build the APK.Open your terminal or command prompt.Navigate to the root directory of your project (EInkPodcast/).On Linux/macOS, make the gradlew script executable:chmod +x gradlew
+Run the build command:On Linux/macOS: ./gradlew assembleDebugOn Windows: gradlew.bat assembleDebugGradle will download all the dependencies and compile your application. If successful, you will find your unsigned, debuggable APK file in app/build/outputs/apk/debug/app-debug.apk.Step 7: Install on a Device or EmulatorConnect an Android device with USB debugging enabled, or start an emulator.Use the Android Debug Bridge (adb), which is part of the platform-tools you downloaded, to install the APK.From your project's root directory, run:adb install app/build/outputs/apk/debug/app-debug.apk
+You should now see the "EInkPodcast" app on your device!
