@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">InkyPod</string>
+    <string name="title_subscriptions">Subscriptions</string>
+    <string name="title_episodes">New Episodes</string>
+    <string name="title_queue">Playback Queue</string>
+    <!-- **THE FIX:** Add the required channel name for the notification. -->
+    <string name="playback_channel_name">Playback Controls</string>
+</resources>
+

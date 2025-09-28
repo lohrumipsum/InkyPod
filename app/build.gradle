@@ -1,0 +1,91 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Load the keystore properties
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+
+android {
+    namespace 'com.lohrumipsum.inkypod'
+    compileSdk 34
+
+    // **THE FIX:** Define the signing configuration for your release build.
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.lohrumipsum.inkypod"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // **THE FIX:** Tell the release build to use the signing configuration.
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Room for database
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+
+    // ViewModel and LiveData
+    def lifecycle_version = "2.6.2"
+    implementation "androidx.lifecycle:lifecycle-viewmodel:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-livedata:$lifecycle_version"
+
+    // WorkManager for background downloads
+    def work_version = "2.9.0"
+    implementation "androidx.work:work-runtime:$work_version"
+
+    // RSS Parser (Rome)
+    implementation 'com.rometools:rome:1.18.0'
+    implementation 'com.rometools:rome-fetcher:1.18.0'
+
+    // Media3 (ExoPlayer and Session)
+    def media3_version = "1.2.1"
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+    implementation "androidx.media3:media3-session:$media3_version"
+    implementation "androidx.media3:media3-ui:$media3_version"
+
+    // **THE FIX:** Add the required dependency for MediaStyle notifications.
+    implementation 'androidx.media:media:1.7.0'
+
+
+    // Guava for ListenableFuture (needed by Media3 session)
+    // **THE FIX:** Corrected the group ID from com.google.common.util.concurrent to com.google.guava
+    implementation 'com.google.guava:guava:32.1.3-android'
+
+}
+
