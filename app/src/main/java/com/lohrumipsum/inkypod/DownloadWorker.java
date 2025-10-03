@@ -44,8 +44,12 @@ public class DownloadWorker extends Worker {
         try {
             URL url = new URL(urlString);
             connection = (HttpURLConnection) url.openConnection();
-            // **THE FIX:** Use the standard, robust way to handle redirects automatically.
-            connection.setInstanceFollowRedirects(true);
+
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0"); // Act like a browser.
+            connection.setConnectTimeout(15000); // 15 second connection timeout.
+            connection.setReadTimeout(15000);    // 15 second read timeout.
+            connection.setInstanceFollowRedirects(true); // Handle redirects automatically.
+            
             connection.connect();
 
             int responseCode = connection.getResponseCode();
@@ -64,6 +68,14 @@ public class DownloadWorker extends Worker {
             long total = 0;
             int count;
             while ((count = input.read(data)) != -1) {
+                // If the worker is stopped, cancel the download.
+                if (isStopped()) {
+                    output.close();
+                    input.close();
+                    Log.d(TAG, "doWork: CANCELED - Worker was stopped.");
+                    return Result.failure();
+                }
+
                 total += count;
                 // Publish progress
                 if (fileLength > 0) {

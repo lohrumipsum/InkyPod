@@ -49,6 +49,7 @@ public class PodcastViewModel extends AndroidViewModel {
             }
         }, application.getMainExecutor());
 
+        // LiveData combination logic
         MediatorLiveData<List<Episode>> mediator = new MediatorLiveData<>();
         LiveData<List<Episode>> episodesFromDb = mRepository.getAllEpisodes();
         LiveData<List<WorkInfo>> workInfo = mRepository.getWorkInfoForTag("download");
@@ -99,14 +100,10 @@ public class PodcastViewModel extends AndroidViewModel {
     public LiveData<List<Subscription>> getAllSubscriptions() {
         return mRepository.getAllSubscriptions();
     }
-    
-    public LiveData<List<SearchResult>> getSearchResults() {
-        return mRepository.getSearchResults();
-    }
 
     public void playEpisode(Episode episode) {
         if (mediaController == null || episode.localFilePath == null) return;
-        Log.d(TAG, "ViewModel: playEpisode called for: " + episode.title);
+        Log.d(TAG, "playEpisode called for: " + episode.title);
 
         String currentlyPlayingId = mediaController.getCurrentMediaItem() != null ? mediaController.getCurrentMediaItem().mediaId : null;
         if (episode.guid.equals(currentlyPlayingId)) {
@@ -116,8 +113,9 @@ public class PodcastViewModel extends AndroidViewModel {
                 mediaController.play();
             }
         } else {
-            if (currentlyPlayingId != null) {
-                mRepository.savePlaybackPosition(currentlyPlayingId, mediaController.getCurrentPosition(), mediaController.getDuration());
+            // Before playing a new item, save the position of the old one.
+            if (mediaController.getCurrentMediaItem() != null) {
+                mRepository.savePlaybackPosition(mediaController.getCurrentMediaItem().mediaId, mediaController.getCurrentPosition(), mediaController.getDuration());
             }
 
             MediaItem mediaItem = new MediaItem.Builder()
@@ -134,17 +132,26 @@ public class PodcastViewModel extends AndroidViewModel {
     public void subscribe(String url) {
         mRepository.subscribeToFeed(url);
     }
-    
-    public void searchPodcasts(String term) {
-        mRepository.searchPodcasts(term);
+
+    public void downloadEpisode(Episode episode) {
+        mRepository.downloadEpisode(episode);
     }
 
-    public void downloadEpisode(Episode episode) { mRepository.downloadEpisode(episode); }
-
-    public void deleteDownload(Episode episode) { mRepository.deleteDownload(episode); }
+    public void deleteDownload(Episode episode) {
+        mRepository.deleteDownload(episode);
+    }
 
     public void toggleQueueStatus(Episode episode) {
         episode.isInQueue = !episode.isInQueue;
+        if (episode.isInQueue) {
+            episode.queueTimestamp = System.currentTimeMillis();
+            // If the episode is being added to the queue and is not downloaded, start the download.
+            if (!episode.isDownloaded) {
+                downloadEpisode(episode);
+            }
+        } else {
+            episode.queueTimestamp = 0; 
+        }
         mRepository.updateEpisode(episode);
     }
 
@@ -162,6 +169,22 @@ public class PodcastViewModel extends AndroidViewModel {
 
     public void unsubscribe(Subscription subscription) {
         mRepository.unsubscribe(subscription);
+    }
+
+    public LiveData<List<SearchResult>> getSearchResults() {
+        return mRepository.getSearchResults();
+    }
+
+    public void searchPodcasts(String term) {
+        mRepository.searchPodcasts(term);
+    }
+
+    public void clearSearchResults() {
+        mRepository.clearSearchResults();
+    }
+
+    public void refreshAllFeeds() {
+        mRepository.refreshAllFeeds();
     }
 }
 

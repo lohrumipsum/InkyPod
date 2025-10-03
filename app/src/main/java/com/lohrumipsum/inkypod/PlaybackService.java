@@ -4,19 +4,28 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 import androidx.media3.session.SessionCommands;
+
+import java.io.File;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -63,6 +72,81 @@ public class PlaybackService extends MediaSessionService {
                 }
                 updateNotification();
             }
+
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+                if (playbackState == Player.STATE_ENDED) {
+                    MediaItem finishedItem = exoPlayer.getCurrentMediaItem();
+                    if (finishedItem != null && finishedItem.mediaId != null) {
+                        handleEpisodeCompletion(finishedItem.mediaId);
+                    }
+                }
+            }
+        });
+    }
+
+    private void handleEpisodeCompletion(String finishedGuid) {
+        executor.execute(() -> {
+            // **THE FIX:** Get the DAO to perform synchronous database operations.
+            PodcastDao dao = repository.getDao();
+            Episode finishedEpisode = dao.getEpisodeByGuidSync(finishedGuid);
+
+            if (finishedEpisode != null) {
+                Log.d(TAG, "Episode finished: " + finishedEpisode.title);
+
+                String pathToDelete = finishedEpisode.localFilePath;
+                boolean wasInQueue = finishedEpisode.isInQueue;
+
+                finishedEpisode.isPlayed = true;
+                finishedEpisode.playbackPosition = 0;
+                if (wasInQueue) {
+                    finishedEpisode.isInQueue = false;
+                }
+                // **THE FIX:** Perform a synchronous update to prevent race conditions.
+                dao.updateEpisode(finishedEpisode);
+
+                if (wasInQueue) {
+                    // **THE FIX:** Get the fresh queue *after* the synchronous update.
+                    List<Episode> nextQueue = dao.getQueueSync();
+                    Episode nextEpisodeToPlay = null;
+
+                    for (Episode next : nextQueue) {
+                        if (next.isDownloaded && next.localFilePath != null && !next.localFilePath.isEmpty()) {
+                            nextEpisodeToPlay = next;
+                            break; 
+                        }
+                    }
+
+                    if (nextEpisodeToPlay != null) {
+                        final Episode finalNextEpisode = nextEpisodeToPlay;
+                        Log.d(TAG, "Playing next in queue: " + finalNextEpisode.title);
+                        
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            MediaItem mediaItem = new MediaItem.Builder()
+                                    .setMediaId(finalNextEpisode.guid)
+                                    .setUri(Uri.fromFile(new File(finalNextEpisode.localFilePath)))
+                                    .setMediaMetadata(new MediaMetadata.Builder().setTitle(finalNextEpisode.title).build())
+                                    .build();
+                            exoPlayer.setMediaItem(mediaItem, finalNextEpisode.playbackPosition);
+                            exoPlayer.prepare();
+                            exoPlayer.play();
+                        });
+                    } else {
+                        Log.d(TAG, "No more downloaded episodes in queue.");
+                    }
+                }
+
+                if (wasInQueue && pathToDelete != null && !pathToDelete.isEmpty()) {
+                    File file = new File(pathToDelete);
+                    if (file.exists()) {
+                        if (file.delete()) {
+                            Log.d(TAG, "Deleted downloaded file for completed queue item: " + pathToDelete);
+                        } else {
+                            Log.e(TAG, "Failed to delete file: " + pathToDelete);
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -75,26 +159,15 @@ public class PlaybackService extends MediaSessionService {
     private class CustomMediaSessionCallback implements MediaSession.Callback {
         @Override
         public MediaSession.ConnectionResult onConnect(MediaSession session, MediaSession.ControllerInfo controller) {
-            MediaSession.ConnectionResult connectionResult = MediaSession.Callback.super.onConnect(session, controller);
-            SessionCommands.Builder availableCommandsBuilder = connectionResult.availableSessionCommands.buildUpon();
-            
-            availableCommandsBuilder.add(Player.COMMAND_PLAY_PAUSE);
-            availableCommandsBuilder.add(Player.COMMAND_SEEK_BACK);
-            availableCommandsBuilder.add(Player.COMMAND_SEEK_FORWARD);
-            availableCommandsBuilder.add(Player.COMMAND_STOP);
-            
-            return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                    .setAvailableSessionCommands(availableCommandsBuilder.build())
+            SessionCommands sessionCommands = new SessionCommands.Builder()
+                    .add(Player.COMMAND_PLAY_PAUSE)
+                    .add(Player.COMMAND_SEEK_BACK)
+                    .add(Player.COMMAND_SEEK_FORWARD)
+                    .add(Player.COMMAND_STOP)
                     .build();
-        }
-
-        @Override
-        public com.google.common.util.concurrent.ListenableFuture<MediaSession.MediaItemsWithStartPosition> onSetMediaItems(MediaSession mediaSession, MediaSession.ControllerInfo controller, java.util.List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
-            exoPlayer.setMediaItems(mediaItems, startIndex, startPositionMs);
-            exoPlayer.prepare();
-            exoPlayer.play();
-            startForeground(NOTIFICATION_ID, buildNotification());
-            return MediaSession.Callback.super.onSetMediaItems(mediaSession, controller, mediaItems, startIndex, startPositionMs);
+            return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(sessionCommands)
+                    .build();
         }
     }
 
@@ -137,7 +210,7 @@ public class PlaybackService extends MediaSessionService {
 
     private PendingIntent createMediaButtonPendingIntent(int command) {
         Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-        intent.setComponent(new android.content.ComponentName(this, "androidx.media3.session.MediaButtonReceiver"));
+        intent.setComponent(new ComponentName(this, "androidx.media3.session.MediaButtonReceiver"));
         Bundle extras = new Bundle();
         extras.putInt("androidx.media3.session.command", command);
         intent.putExtras(extras);
@@ -160,7 +233,6 @@ public class PlaybackService extends MediaSessionService {
 
     @Override
     public void onDestroy() {
-        // **THE FIX:** Save position of the current item before the service is destroyed.
         if (exoPlayer.isPlaying() && exoPlayer.getCurrentMediaItem() != null) {
             repository.savePlaybackPosition(exoPlayer.getCurrentMediaItem().mediaId, exoPlayer.getCurrentPosition(), exoPlayer.getDuration());
         }

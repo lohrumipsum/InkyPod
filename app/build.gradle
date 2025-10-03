@@ -14,7 +14,6 @@ android {
     namespace 'com.lohrumipsum.inkypod'
     compileSdk 34
 
-    // **THE FIX:** Define the signing configuration for your release build.
     signingConfigs {
         release {
             if (keystorePropertiesFile.exists()) {
@@ -39,7 +38,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // **THE FIX:** Tell the release build to use the signing configuration.
             signingConfig signingConfigs.release
         }
     }
@@ -77,14 +75,12 @@ dependencies {
     def media3_version = "1.2.1"
     implementation "androidx.media3:media3-exoplayer:$media3_version"
     implementation "androidx.media3:media3-session:$media3_version"
-    implementation "androidx.media3:media3-ui:$media3_version"
+    // **THE FIX:** The problematic media3-ui dependency has been removed.
 
     // **THE FIX:** Add the required dependency for MediaStyle notifications.
     implementation 'androidx.media:media:1.7.0'
 
-
     // Guava for ListenableFuture (needed by Media3 session)
-    // **THE FIX:** Corrected the group ID from com.google.common.util.concurrent to com.google.guava
     implementation 'com.google.guava:guava:32.1.3-android'
 
 }

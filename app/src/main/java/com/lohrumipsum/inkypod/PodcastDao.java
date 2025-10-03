@@ -24,11 +24,17 @@ public interface PodcastDao {
     @Query("SELECT * FROM episodes WHERE isPlayed = 0 ORDER BY publicationDate DESC")
     LiveData<List<Episode>> getAllEpisodes();
 
-    @Query("SELECT * FROM episodes WHERE isInQueue = 1 ORDER BY publicationDate ASC")
+    @Query("SELECT * FROM episodes WHERE isInQueue = 1 ORDER BY queueTimestamp ASC")
     LiveData<List<Episode>> getQueue();
+
+    @Query("SELECT * FROM episodes WHERE isInQueue = 1 ORDER BY queueTimestamp ASC")
+    List<Episode> getQueueSync();
 
     @Query("SELECT * FROM subscriptions ORDER BY title ASC")
     LiveData<List<Subscription>> getAllSubscriptions();
+    
+    @Query("SELECT * FROM subscriptions ORDER BY title ASC")
+    List<Subscription> getAllSubscriptionsSync();
 
     @Query("SELECT * FROM episodes WHERE feedUrl = :feedUrl ORDER BY publicationDate DESC")
     LiveData<List<Episode>> getEpisodesByFeedUrl(String feedUrl);

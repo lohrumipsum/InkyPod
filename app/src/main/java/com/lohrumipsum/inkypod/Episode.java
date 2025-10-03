@@ -17,16 +17,19 @@ public class Episode {
     public String audioUrl;
     public long publicationDate;
     public String localFilePath;
-    public boolean isDownloaded;
-    public boolean isInQueue;
-    public boolean isPlayed;
-    public long playbackPosition; // in milliseconds
-
-    @Ignore
+    public long playbackPosition = 0;
+    public boolean isPlayed = false;
+    public boolean isInQueue = false;
     public int downloadProgress = -1; // -1 means not downloading
+    public long queueTimestamp = 0;
+    public boolean isDownloaded = false;
+
+    public Episode() {
+        // Needed for Room
+    }
 
     @Ignore
-    public Episode(@NonNull String guid, String feedUrl, String title, String description, String audioUrl, long publicationDate, String localFilePath) {
+    public Episode(String guid, String feedUrl, String title, String description, String audioUrl, long publicationDate, String localFilePath) {
         this.guid = guid;
         this.feedUrl = feedUrl;
         this.title = title;
@@ -34,13 +37,6 @@ public class Episode {
         this.audioUrl = audioUrl;
         this.publicationDate = publicationDate;
         this.localFilePath = localFilePath;
-        this.isDownloaded = false;
-        this.isInQueue = false;
-        this.isPlayed = false;
-        this.playbackPosition = 0;
-    }
-
-    public Episode() {
     }
 }
 
